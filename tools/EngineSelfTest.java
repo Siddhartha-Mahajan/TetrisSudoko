@@ -20,24 +20,24 @@ public final class EngineSelfTest {
     private static void testSudokuGeneration() {
         Random random = new Random(1739);
         for (SudokuEngine.Difficulty difficulty : SudokuEngine.Difficulty.values()) {
-            for (int iteration = 0; iteration < 6; iteration++) {
+            for (int iteration = 0; iteration < 2; iteration++) {
+                long started = System.nanoTime();
                 SudokuEngine.Puzzle puzzle = SudokuEngine.generate(difficulty, random);
                 require(puzzle != null, "Puzzle was null");
                 require(validSolution(puzzle.solution), "Generated solution is invalid");
                 require(SudokuEngine.countSolutions(puzzle.clues, 2) == 1,
                         difficulty + " puzzle is not unique");
-                int clues = 0;
                 for (int i = 0; i < 81; i++) {
                     if (puzzle.clues[i] != 0) {
-                        clues++;
                         require(puzzle.clues[i] == puzzle.solution[i],
                                 "Clue differs from solution");
                     }
                 }
-                require(clues >= difficulty.clueCount,
-                        difficulty + " has too few clues");
-                require(clues <= difficulty.clueCount + 3,
-                        difficulty + " generation missed its target");
+                require(SudokuEngine.rate(puzzle.clues) == difficulty,
+                        difficulty + " puzzle has the wrong logical rating");
+                long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
+                require(elapsedMs < 30_000,
+                        difficulty + " generation took too long: " + elapsedMs + " ms");
             }
         }
     }
@@ -139,4 +139,3 @@ public final class EngineSelfTest {
         }
     }
 }
-

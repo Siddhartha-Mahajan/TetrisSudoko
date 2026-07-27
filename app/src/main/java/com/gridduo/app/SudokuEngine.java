@@ -1,25 +1,26 @@
 package com.gridduo.app;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Random;
+
+import org.secuso.privacyfriendlysudoku.controller.qqwing.GameDifficulty;
+import org.secuso.privacyfriendlysudoku.controller.qqwing.GameType;
+import org.secuso.privacyfriendlysudoku.controller.qqwing.QQWing;
 
 final class SudokuEngine {
     enum Difficulty {
-        EASY("Easy", 42, "A relaxed start"),
-        MEDIUM("Medium", 35, "A balanced challenge"),
-        HARD("Hard", 29, "Fewer clues, deeper logic"),
-        EXPERT("Expert", 25, "For seasoned solvers");
+        EASY("Easy", "Singles and straightforward logic", GameDifficulty.Easy),
+        MEDIUM("Medium", "Hidden singles and pairs", GameDifficulty.Moderate),
+        HARD("Hard", "Box and line interactions", GameDifficulty.Hard),
+        EXPERT("Expert", "Requires careful branching", GameDifficulty.Challenge);
 
         final String label;
-        final int clueCount;
         final String description;
+        final GameDifficulty qqWingDifficulty;
 
-        Difficulty(String label, int clueCount, String description) {
+        Difficulty(String label, String description, GameDifficulty qqWingDifficulty) {
             this.label = label;
-            this.clueCount = clueCount;
             this.description = description;
+            this.qqWingDifficulty = qqWingDifficulty;
         }
     }
 
@@ -37,93 +38,45 @@ final class SudokuEngine {
     }
 
     static Puzzle generate(Difficulty difficulty, Random random) {
-        int[] bestPuzzle = null;
-        int[] bestSolution = null;
-        int bestClues = 82;
+        QQWing generator = new QQWing(
+                GameType.Default_9x9, difficulty.qqWingDifficulty);
+        generator.setRandom(random.nextInt());
+        generator.setRecordHistory(true);
 
-        // A removal pass can occasionally reach a locally minimal puzzle before the
-        // requested clue count. Fresh solved grids make the requested count reliable.
-        for (int attempt = 0; attempt < 8; attempt++) {
-            int[] solution = randomizedSolution(random);
-            int[] puzzle = solution.clone();
-            List<Integer> cells = new ArrayList<>(81);
-            for (int i = 0; i < 81; i++) {
-                cells.add(i);
+        // This is the same generate → solve → technique-rate loop used by
+        // LibreSudoku's QQWingController. QQWing removes every clue it can while
+        // preserving one solution; puzzles are accepted only when the solving
+        // techniques match the level the player selected.
+        while (!Thread.currentThread().isInterrupted()) {
+            generator.generatePuzzle();
+            if (generator.countSolutionsLimited() != 1) {
+                continue;
             }
-            Collections.shuffle(cells, random);
-
-            int clues = 81;
-            for (int cell : cells) {
-                if (clues <= difficulty.clueCount) {
-                    break;
-                }
-                int saved = puzzle[cell];
-                puzzle[cell] = 0;
-                if (countSolutions(puzzle, 2) != 1) {
-                    puzzle[cell] = saved;
-                } else {
-                    clues--;
-                }
-            }
-
-            if (clues < bestClues) {
-                bestClues = clues;
-                bestPuzzle = puzzle;
-                bestSolution = solution;
-            }
-            if (clues == difficulty.clueCount) {
-                return new Puzzle(puzzle, solution);
+            generator.solve();
+            if (generator.getDifficulty() == difficulty.qqWingDifficulty) {
+                return new Puzzle(generator.getPuzzle(), generator.getSolution());
             }
         }
-        return new Puzzle(bestPuzzle, bestSolution);
-    }
-
-    private static int[] randomizedSolution(Random random) {
-        List<Integer> rowGroups = shuffled012(random);
-        List<Integer> columnGroups = shuffled012(random);
-        List<Integer> rows = new ArrayList<>(9);
-        List<Integer> columns = new ArrayList<>(9);
-
-        for (int group : rowGroups) {
-            List<Integer> inside = shuffled012(random);
-            for (int value : inside) {
-                rows.add(group * 3 + value);
-            }
-        }
-        for (int group : columnGroups) {
-            List<Integer> inside = shuffled012(random);
-            for (int value : inside) {
-                columns.add(group * 3 + value);
-            }
-        }
-
-        List<Integer> digits = new ArrayList<>(9);
-        for (int value = 1; value <= 9; value++) {
-            digits.add(value);
-        }
-        Collections.shuffle(digits, random);
-
-        int[] solution = new int[81];
-        for (int r = 0; r < 9; r++) {
-            for (int c = 0; c < 9; c++) {
-                int patternValue = (rows.get(r) * 3 + rows.get(r) / 3 + columns.get(c)) % 9;
-                solution[r * 9 + c] = digits.get(patternValue);
-            }
-        }
-        return solution;
-    }
-
-    private static List<Integer> shuffled012(Random random) {
-        List<Integer> values = new ArrayList<>(3);
-        values.add(0);
-        values.add(1);
-        values.add(2);
-        Collections.shuffle(values, random);
-        return values;
+        throw new IllegalStateException("Sudoku generation was interrupted");
     }
 
     static int countSolutions(int[] source, int limit) {
         return countSolutionsInPlace(source.clone(), limit);
+    }
+
+    static Difficulty rate(int[] puzzle) {
+        QQWing solver = new QQWing(GameType.Default_9x9, GameDifficulty.Unspecified);
+        solver.setRecordHistory(true);
+        if (!solver.setPuzzle(puzzle) || !solver.solve()) {
+            return null;
+        }
+        GameDifficulty rating = solver.getDifficulty();
+        for (Difficulty difficulty : Difficulty.values()) {
+            if (difficulty.qqWingDifficulty == rating) {
+                return difficulty;
+            }
+        }
+        return null;
     }
 
     private static int countSolutionsInPlace(int[] board, int limit) {
@@ -192,4 +145,3 @@ final class SudokuEngine {
         return 0x1ff & ~used;
     }
 }
-

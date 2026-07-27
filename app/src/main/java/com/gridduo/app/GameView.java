@@ -5,7 +5,6 @@ import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.SystemClock;
@@ -53,7 +52,6 @@ final class GameView extends View {
     private final float density;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path path = new Path();
     private final ArrayList<HitTarget> hits = new ArrayList<>();
     private final Random random = new Random();
     private final ExecutorService puzzleExecutor = Executors.newSingleThreadExecutor();
@@ -1106,4 +1104,3 @@ final class GameView extends View {
         }
     }
 }
-
