@@ -8,6 +8,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.SystemClock;
+import android.util.TypedValue;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
@@ -105,6 +106,9 @@ final class GameView extends View {
 
     void onHostPause() {
         hostPaused = true;
+        if (screen == TETRIS && tetris != null && !tetris.gameOver) {
+            tetris.paused = true;
+        }
         saveState();
     }
 
@@ -157,7 +161,7 @@ final class GameView extends View {
 
         text(canvas, "GRID DUO", width / 2, dp(52), sp(30), palette.text, true,
                 Paint.Align.CENTER);
-        text(canvas, "Two classics. One tiny offline app.", width / 2, dp(77), sp(14),
+        text(canvas, "i hope you have fun :D", width / 2, dp(77), sp(14),
                 palette.muted, false, Paint.Align.CENTER);
 
         RectF themeRect = new RectF(width - dp(58), dp(16), width - dp(14), dp(60));
@@ -178,7 +182,7 @@ final class GameView extends View {
 
         RectF tetrisCard = new RectF(side, sudokuCard.bottom + gap, width - side,
                 sudokuCard.bottom + gap + cardHeight);
-        gameCard(canvas, tetrisCard, palette.orange, "BLOCK DROP", "10 × 20",
+        gameCard(canvas, tetrisCard, palette.orange, "TETRIS", "10 × 20",
                 "Seven pieces • lines • levels", false);
         hit(tetrisCard, A_OPEN_TETRIS, 0);
 
@@ -478,11 +482,15 @@ final class GameView extends View {
     }
 
     private void drawTetris(Canvas canvas) {
-        drawBack(canvas, "Block Drop");
+        drawBack(canvas, "Tetris");
         if (tetris == null) {
             tetris = new TetrisEngine(random);
             tetrisLastFrame = SystemClock.elapsedRealtime();
         }
+        RectF newGame = new RectF(getWidth() - dp(98), dp(12),
+                getWidth() - dp(12), dp(50));
+        pill(canvas, newGame, "NEW GAME", palette.card, palette.text, sp(10));
+        hit(newGame, A_T_RESTART, 0);
 
         float sidePanelWidth = dp(94);
         float controlsHeight = dp(164);
@@ -702,6 +710,7 @@ final class GameView extends View {
         if (event.getAction() != MotionEvent.ACTION_UP) {
             return true;
         }
+        performClick();
         for (int i = hits.size() - 1; i >= 0; i--) {
             HitTarget target = hits.get(i);
             if (target.rect.contains(event.getX(), event.getY())) {
@@ -711,6 +720,12 @@ final class GameView extends View {
                 return true;
             }
         }
+        return true;
+    }
+
+    @Override
+    public boolean performClick() {
+        super.performClick();
         return true;
     }
 
@@ -728,9 +743,6 @@ final class GameView extends View {
             case A_OPEN_TETRIS:
                 screen = TETRIS;
                 tetrisLastFrame = SystemClock.elapsedRealtime();
-                if (tetris != null && !tetris.gameOver) {
-                    tetris.paused = false;
-                }
                 break;
             case A_BACK:
                 goBack();
@@ -1020,7 +1032,8 @@ final class GameView extends View {
     }
 
     private float sp(float value) {
-        return value * getResources().getDisplayMetrics().scaledDensity;
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value,
+                getResources().getDisplayMetrics());
     }
 
     private static int withAlpha(int color, int alpha) {

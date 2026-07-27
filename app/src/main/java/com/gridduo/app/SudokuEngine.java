@@ -7,6 +7,8 @@ import org.secuso.privacyfriendlysudoku.controller.qqwing.GameType;
 import org.secuso.privacyfriendlysudoku.controller.qqwing.QQWing;
 
 final class SudokuEngine {
+    static final int EXPERT_MAX_CLUES = 24;
+
     enum Difficulty {
         EASY("Easy", "Singles and straightforward logic", GameDifficulty.Easy),
         MEDIUM("Medium", "Hidden singles and pairs", GameDifficulty.Moderate),
@@ -52,12 +54,26 @@ final class SudokuEngine {
             if (generator.countSolutionsLimited() != 1) {
                 continue;
             }
+            if (difficulty == Difficulty.EXPERT
+                    && countClues(generator.getPuzzle()) > EXPERT_MAX_CLUES) {
+                continue;
+            }
             generator.solve();
             if (generator.getDifficulty() == difficulty.qqWingDifficulty) {
                 return new Puzzle(generator.getPuzzle(), generator.getSolution());
             }
         }
         throw new IllegalStateException("Sudoku generation was interrupted");
+    }
+
+    private static int countClues(int[] puzzle) {
+        int clues = 0;
+        for (int value : puzzle) {
+            if (value != 0) {
+                clues++;
+            }
+        }
+        return clues;
     }
 
     static int countSolutions(int[] source, int limit) {

@@ -129,15 +129,15 @@ public class QQWing {
 	 */
 	private PrintStyle printStyle = PrintStyle.READABLE;
 
-    private GameType gameType = GameType.Unspecified;
-    private GameDifficulty difficulty = GameDifficulty.Unspecified;
+	private GameType gameType = GameType.Unspecified;
+	private GameDifficulty difficulty = GameDifficulty.Unspecified;
 
 	/**
 	 * Create a new Sudoku board
 	 */
 	public QQWing(GameType type, GameDifficulty difficulty) {
-        gameType = type;
-        this.difficulty = difficulty;
+		gameType = type;
+		this.difficulty = difficulty;
 
 		GRID_SIZE_ROW = type.getSectionHeight();    // 3    // 2
 
@@ -151,17 +151,17 @@ public class QQWing {
 
 		POSSIBILITY_SIZE = (BOARD_SIZE * ROW_COL_SEC_SIZE);     // 81 * 9
 
-        puzzle = new int[BOARD_SIZE];
+		puzzle = new int[BOARD_SIZE];
 
-        solution = new int[BOARD_SIZE];
+		solution = new int[BOARD_SIZE];
 
-        solutionRound = new int[BOARD_SIZE];
+		solutionRound = new int[BOARD_SIZE];
 
-        possibilities = new int[POSSIBILITY_SIZE];
+		possibilities = new int[POSSIBILITY_SIZE];
 
-        randomBoardArray = fillIncrementing(new int[BOARD_SIZE]);
+		randomBoardArray = fillIncrementing(new int[BOARD_SIZE]);
 
-        randomPossibilityArray = fillIncrementing(new int[ROW_COL_SEC_SIZE]);
+		randomPossibilityArray = fillIncrementing(new int[ROW_COL_SEC_SIZE]);
 	}
 
 	private static int[] fillIncrementing(int[] arr){
@@ -407,6 +407,8 @@ public class QQWing {
 					case ROTATE90:
 						positionsym2 = rowColumnToCell(ROW_COL_SEC_SIZE - 1 - cellToColumn(position), cellToRow(position));
 						positionsym3 = rowColumnToCell(cellToColumn(position), ROW_COL_SEC_SIZE - 1 - cellToRow(position));
+						positionsym1 = rowColumnToCell(ROW_COL_SEC_SIZE - 1 - cellToRow(position), ROW_COL_SEC_SIZE - 1 - cellToColumn(position));
+					break;
 					case ROTATE180:
 						positionsym1 = rowColumnToCell(ROW_COL_SEC_SIZE - 1 - cellToRow(position), ROW_COL_SEC_SIZE - 1 - cellToColumn(position));
 					break;

@@ -25,7 +25,9 @@ public final class MainActivity extends Activity {
         int flags = window.getDecorView().getSystemUiVisibility();
         if (dark) {
             flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
         } else {
             flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
             if (android.os.Build.VERSION.SDK_INT >= 26) {
@@ -66,4 +68,3 @@ public final class MainActivity extends Activity {
         }
     }
 }
-

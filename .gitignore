@@ -2,9 +2,12 @@
 .gradle-user-home/
 .android-user-home/
 .toolchain/
+.signing/
+artifacts/
+dist/*.apk
+dist/*.idsig
 .idea/
 local.properties
 build/
 app/build/
 *.iml
-
