@@ -13,6 +13,7 @@ public final class EngineSelfTest {
     public static void main(String[] args) {
         testSudokuGeneration();
         testSudokuGameActionsAndPersistence();
+        testSudokuMistakeLimit();
         testTetrisMovementAndLineClear();
         System.out.println("All engine self-tests passed.");
     }
@@ -120,6 +121,28 @@ public final class EngineSelfTest {
             }
         }
         throw new AssertionError("Puzzle has no empty cell");
+    }
+
+    private static void testSudokuMistakeLimit() {
+        SudokuEngine.Puzzle generated = SudokuEngine.generate(
+                SudokuEngine.Difficulty.EASY, new Random(91));
+        SudokuGame game = new SudokuGame(SudokuEngine.Difficulty.EASY, generated);
+        int editable = firstEmpty(game.puzzle);
+        int wrong = game.solution[editable] == 9 ? 8 : 9;
+        game.enter(editable, wrong, false);
+        game.enter(editable, wrong, false);
+        require(!game.hasFailed(), "Sudoku ended before the third mistake");
+        game.enter(editable, wrong, false);
+        require(game.hasFailed(), "Sudoku did not end on the third mistake");
+        require(game.mistakes == SudokuGame.MAX_MISTAKES,
+                "Sudoku mistake count exceeded its limit");
+        game.erase(editable);
+        require(game.values[editable] == wrong,
+                "A finished Sudoku game still accepted input");
+
+        SudokuGame restored = SudokuGame.decode(game.encode());
+        require(restored != null && restored.hasFailed(),
+                "Sudoku game-over state was not restored");
     }
 
     private static void testTetrisMovementAndLineClear() {

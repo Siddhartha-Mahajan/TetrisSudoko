@@ -6,6 +6,8 @@ import java.util.Locale;
 import java.util.Random;
 
 final class SudokuGame {
+    static final int MAX_MISTAKES = 3;
+
     final SudokuEngine.Difficulty difficulty;
     final int[] puzzle;
     final int[] solution;
@@ -25,11 +27,20 @@ final class SudokuGame {
     }
 
     boolean isEditable(int cell) {
-        return cell >= 0 && cell < 81 && puzzle[cell] == 0 && !hinted[cell] && !complete;
+        return cell >= 0 && cell < 81 && puzzle[cell] == 0 && !hinted[cell]
+                && !isOver();
     }
 
     boolean isMistake(int cell) {
         return values[cell] != 0 && values[cell] != solution[cell];
+    }
+
+    boolean hasFailed() {
+        return mistakes >= MAX_MISTAKES;
+    }
+
+    boolean isOver() {
+        return complete || hasFailed();
     }
 
     void enter(int cell, int number, boolean noteMode) {
@@ -62,7 +73,7 @@ final class SudokuGame {
     }
 
     int revealHint(Random random) {
-        if (hintsRemaining <= 0 || complete) {
+        if (hintsRemaining <= 0 || isOver()) {
             return -1;
         }
         List<Integer> candidates = new ArrayList<>();
@@ -142,7 +153,8 @@ final class SudokuGame {
             SudokuGame game = new SudokuGame(
                     difficulty, new SudokuEngine.Puzzle(puzzle, solution));
             game.hintsRemaining = Math.max(0, Math.min(3, Integer.parseInt(parts[2])));
-            game.mistakes = Math.max(0, Integer.parseInt(parts[3]));
+            game.mistakes = Math.max(0,
+                    Math.min(MAX_MISTAKES, Integer.parseInt(parts[3])));
             game.elapsedSeconds = Math.max(0, Integer.parseInt(parts[4]));
             System.arraycopy(savedValues, 0, game.values, 0, 81);
             String[] savedNotes = parts[8].split("\\.", -1);
@@ -206,4 +218,3 @@ final class SudokuGame {
         return String.format(Locale.US, "%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60);
     }
 }
-

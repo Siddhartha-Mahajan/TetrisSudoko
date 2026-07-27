@@ -5,7 +5,9 @@ Grid Duo is a tiny, fully offline Android app containing:
 - Algorithmically generated 9×9 Sudoku puzzles with one solution
 - QQWing technique-rated Easy, Medium, Hard, and Expert difficulty levels;
   Expert boards are capped at 24 starting clues
-- Notes, erasing, immediate mistake highlighting, three hints, and saved progress
+- Notes, erasing, immediate mistake highlighting, three hints, a three-mistake
+  game-over limit, paused background sessions, saved progress, and a best time
+  for every difficulty
 - A complete Tetris game with the seven standard tetrominoes, a shuffled bag,
   rotation, wall kicks, soft/hard drop, line clears, score, levels, increasing speed,
   pause/resume, and an always-visible new-game control

@@ -1,5 +1,6 @@
 package com.gridduo.app;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
@@ -37,6 +38,7 @@ final class GameView extends View {
     private static final int A_HINT = 10;
     private static final int A_NEW_SUDOKU = 11;
     private static final int A_CONTINUE_SUDOKU = 12;
+    private static final int A_RESUME_SUDOKU = 13;
     private static final int A_T_LEFT = 20;
     private static final int A_T_RIGHT = 21;
     private static final int A_T_ROTATE = 22;
@@ -48,6 +50,7 @@ final class GameView extends View {
     private static final String PREFS = "grid_duo";
     private static final String KEY_DARK = "dark";
     private static final String KEY_SUDOKU = "sudoku";
+    private static final String KEY_SUDOKU_BEST_PREFIX = "sudoku_best_";
     private static final String KEY_HIGH_SCORE = "tetris_high_score";
 
     private final float density;
@@ -71,7 +74,10 @@ final class GameView extends View {
     private long tetrisLastFrame;
     private long tetrisDropAccumulator;
     private int tetrisHighScore;
+    private final int[] sudokuBestTimes =
+            new int[SudokuEngine.Difficulty.values().length];
     private boolean hostPaused;
+    private boolean sudokuPaused;
     private String toastMessage;
     private long toastUntil;
 
@@ -81,6 +87,10 @@ final class GameView extends View {
         preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         darkTheme = preferences.getBoolean(KEY_DARK, false);
         tetrisHighScore = preferences.getInt(KEY_HIGH_SCORE, 0);
+        for (int i = 0; i < sudokuBestTimes.length; i++) {
+            sudokuBestTimes[i] = Math.max(0,
+                    preferences.getInt(KEY_SUDOKU_BEST_PREFIX + i, 0));
+        }
         palette = new Palette(darkTheme);
         strokePaint.setStyle(Paint.Style.STROKE);
         strokePaint.setStrokeCap(Paint.Cap.ROUND);
@@ -90,6 +100,7 @@ final class GameView extends View {
         String saved = preferences.getString(KEY_SUDOKU, null);
         if (saved != null) {
             sudoku = SudokuGame.decode(saved);
+            updateSudokuBestTime();
         }
     }
 
@@ -105,6 +116,9 @@ final class GameView extends View {
     }
 
     void onHostPause() {
+        if (screen == SUDOKU && sudoku != null && !sudoku.isOver()) {
+            sudokuPaused = true;
+        }
         hostPaused = true;
         if (screen == TETRIS && tetris != null && !tetris.gameOver) {
             tetris.paused = true;
@@ -122,6 +136,7 @@ final class GameView extends View {
         }
         if (screen == SUDOKU) {
             saveSudoku();
+            sudokuPaused = true;
             screen = LEVELS;
         } else {
             if (screen == TETRIS && tetris != null && !tetris.gameOver) {
@@ -258,7 +273,7 @@ final class GameView extends View {
                 sp(13), palette.muted, false, Paint.Align.LEFT);
 
         float y = dp(154);
-        if (sudoku != null && !sudoku.complete) {
+        if (sudoku != null && !sudoku.isOver()) {
             RectF resume = new RectF(dp(20), y, width - dp(20), y + dp(62));
             roundRect(canvas, resume, dp(16), withAlpha(palette.blue, darkTheme ? 40 : 24));
             text(canvas, "CONTINUE " + sudoku.difficulty.label.toUpperCase(Locale.US),
@@ -291,6 +306,10 @@ final class GameView extends View {
                     sp(18), accent, true, Paint.Align.CENTER);
             text(canvas, difficulty.label, rect.left + dp(70), rect.centerY() - dp(4),
                     sp(18), palette.text, true, Paint.Align.LEFT);
+            int bestTime = sudokuBestTimes[i];
+            text(canvas, "BEST " + (bestTime == 0 ? "--:--" : formatTime(bestTime)),
+                    rect.right - dp(48), rect.centerY() - dp(5), sp(10), accent, true,
+                    Paint.Align.RIGHT);
             text(canvas, difficulty.description, rect.left + dp(70), rect.centerY() + dp(20),
                     sp(12), palette.muted, false, Paint.Align.LEFT);
             text(canvas, "›", rect.right - dp(22), rect.centerY() + dp(7), sp(28),
@@ -315,7 +334,7 @@ final class GameView extends View {
         float statWidth = (getWidth() - dp(40)) / 3;
         stat(canvas, dp(14) + statWidth * 0, top, statWidth, "TIME", sudoku.formattedTime());
         stat(canvas, dp(14) + statWidth * 1, top, statWidth, "MISTAKES",
-                String.valueOf(sudoku.mistakes));
+                sudoku.mistakes + " / " + SudokuGame.MAX_MISTAKES);
         stat(canvas, dp(14) + statWidth * 2, top, statWidth, "HINTS",
                 sudoku.hintsRemaining + " / 3");
 
@@ -355,8 +374,12 @@ final class GameView extends View {
             hit(rect, A_NUMBER, number);
         }
 
-        if (sudoku.complete) {
+        if (sudoku.hasFailed()) {
+            drawSudokuFailed(canvas);
+        } else if (sudoku.complete) {
             drawSudokuComplete(canvas);
+        } else if (sudokuPaused) {
+            drawSudokuPaused(canvas);
         }
     }
 
@@ -479,6 +502,41 @@ final class GameView extends View {
                 dialog.right - dp(20), dialog.bottom - dp(20));
         pill(canvas, again, "NEW PUZZLE", palette.blue, Color.WHITE, sp(13));
         hit(again, A_NEW_SUDOKU, 0);
+    }
+
+    private void drawSudokuFailed(Canvas canvas) {
+        canvas.drawColor(withAlpha(Color.BLACK, darkTheme ? 145 : 100));
+        float width = getWidth() - dp(48);
+        RectF dialog = new RectF(dp(24), getHeight() / 2f - dp(116),
+                dp(24) + width, getHeight() / 2f + dp(116));
+        roundRect(canvas, dialog, dp(24), palette.card);
+        text(canvas, "GAME OVER", dialog.centerX(), dialog.top + dp(54), sp(24),
+                palette.red, true, Paint.Align.CENTER);
+        text(canvas, "Three mistakes used", dialog.centerX(), dialog.top + dp(86),
+                sp(14), palette.text, false, Paint.Align.CENTER);
+        text(canvas, sudoku.difficulty.label + "  •  " + sudoku.formattedTime(),
+                dialog.centerX(), dialog.top + dp(112), sp(12), palette.muted, false,
+                Paint.Align.CENTER);
+        RectF again = new RectF(dialog.left + dp(20), dialog.bottom - dp(72),
+                dialog.right - dp(20), dialog.bottom - dp(20));
+        pill(canvas, again, "TRY AGAIN", palette.red, Color.WHITE, sp(13));
+        hit(again, A_NEW_SUDOKU, 0);
+    }
+
+    private void drawSudokuPaused(Canvas canvas) {
+        canvas.drawColor(withAlpha(Color.BLACK, darkTheme ? 145 : 100));
+        float width = getWidth() - dp(72);
+        RectF dialog = new RectF(dp(36), getHeight() / 2f - dp(90),
+                dp(36) + width, getHeight() / 2f + dp(90));
+        roundRect(canvas, dialog, dp(24), palette.card);
+        text(canvas, "PAUSED", dialog.centerX(), dialog.top + dp(56), sp(24),
+                palette.text, true, Paint.Align.CENTER);
+        text(canvas, "Your timer is stopped", dialog.centerX(), dialog.top + dp(86),
+                sp(13), palette.muted, false, Paint.Align.CENTER);
+        RectF resume = new RectF(dialog.left + dp(20), dialog.bottom - dp(66),
+                dialog.right - dp(20), dialog.bottom - dp(18));
+        pill(canvas, resume, "RESUME", palette.blue, Color.WHITE, sp(13));
+        hit(resume, A_RESUME_SUDOKU, 0);
     }
 
     private void drawTetris(Canvas canvas) {
@@ -670,7 +728,8 @@ final class GameView extends View {
         if (sudokuLastTick == 0) {
             sudokuLastTick = now;
         }
-        if (!hostPaused && sudoku != null && !sudoku.complete && !generating) {
+        if (!hostPaused && !sudokuPaused && sudoku != null
+                && !sudoku.isOver() && !generating) {
             long delta = now - sudokuLastTick;
             if (delta >= 1000) {
                 int seconds = (int) (delta / 1000);
@@ -752,39 +811,55 @@ final class GameView extends View {
                 break;
             case A_CONTINUE_SUDOKU:
                 screen = SUDOKU;
+                sudokuPaused = false;
                 selectedCell = findFirstEditable();
                 sudokuLastTick = SystemClock.elapsedRealtime();
                 break;
+            case A_RESUME_SUDOKU:
+                sudokuPaused = false;
+                sudokuLastTick = SystemClock.elapsedRealtime();
+                break;
             case A_SUDOKU_CELL:
-                if (!generating) {
+                if (!generating && !sudokuPaused && sudoku != null && !sudoku.isOver()) {
                     selectedCell = value;
                 }
                 break;
             case A_NUMBER:
-                if (sudoku != null && selectedCell >= 0) {
+                if (sudoku != null && !sudokuPaused && !sudoku.isOver()
+                        && selectedCell >= 0) {
                     sudoku.enter(selectedCell, value, noteMode);
                     if (sudoku.isMistake(selectedCell)) {
-                        showToast("That number is a mistake");
+                        if (sudoku.hasFailed()) {
+                            showToast("Three mistakes — game over");
+                        } else {
+                            showToast("Mistake " + sudoku.mistakes + " / "
+                                    + SudokuGame.MAX_MISTAKES);
+                        }
                     }
+                    updateSudokuBestTime();
                     saveSudoku();
                 }
                 break;
             case A_ERASE:
-                if (sudoku != null && selectedCell >= 0) {
+                if (sudoku != null && !sudokuPaused && !sudoku.isOver()
+                        && selectedCell >= 0) {
                     sudoku.erase(selectedCell);
                     saveSudoku();
                 }
                 break;
             case A_NOTES:
-                noteMode = !noteMode;
-                showToast(noteMode ? "Notes on" : "Notes off");
+                if (sudoku != null && !sudokuPaused && !sudoku.isOver()) {
+                    noteMode = !noteMode;
+                    showToast(noteMode ? "Notes on" : "Notes off");
+                }
                 break;
             case A_HINT:
-                if (sudoku != null) {
+                if (sudoku != null && !sudokuPaused && !sudoku.isOver()) {
                     int cell = sudoku.revealHint(random);
                     if (cell >= 0) {
                         selectedCell = cell;
                         showToast(sudoku.hintsRemaining + " hints remaining");
+                        updateSudokuBestTime();
                         saveSudoku();
                     } else if (sudoku.hintsRemaining == 0) {
                         showToast("No hints remaining");
@@ -837,6 +912,7 @@ final class GameView extends View {
     private void startSudoku(final SudokuEngine.Difficulty difficulty) {
         screen = SUDOKU;
         generating = true;
+        sudokuPaused = false;
         selectedCell = -1;
         noteMode = false;
         final int token = ++generationToken;
@@ -874,6 +950,28 @@ final class GameView extends View {
             tetrisHighScore = tetris.score;
             preferences.edit().putInt(KEY_HIGH_SCORE, tetrisHighScore).apply();
         }
+    }
+
+    @SuppressLint("ApplySharedPref") // A rare record update must be durable immediately.
+    private void updateSudokuBestTime() {
+        if (sudoku == null || !sudoku.complete || sudoku.elapsedSeconds <= 0) {
+            return;
+        }
+        int index = sudoku.difficulty.ordinal();
+        int previous = sudokuBestTimes[index];
+        if (previous == 0 || sudoku.elapsedSeconds < previous) {
+            boolean saved = preferences.edit()
+                    .putInt(KEY_SUDOKU_BEST_PREFIX + index, sudoku.elapsedSeconds)
+                    .commit();
+            if (saved) {
+                sudokuBestTimes[index] = sudoku.elapsedSeconds;
+            }
+        }
+    }
+
+    private static String formatTime(int elapsedSeconds) {
+        return String.format(Locale.US, "%02d:%02d",
+                elapsedSeconds / 60, elapsedSeconds % 60);
     }
 
     private void saveState() {
