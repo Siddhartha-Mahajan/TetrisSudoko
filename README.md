@@ -45,3 +45,6 @@ save/restore behavior, Tetris movement, hard-drop scoring, and line clearing.
 Grid Duo is GPL-3.0-or-later because it selectively incorporates the QQWing
 lineage used by LibreSudoku. See [NOTICE.md](NOTICE.md) for exact upstream
 repositories, commits, mappings, and copyright notices.
+
+## Reception
+App was well received by user.
